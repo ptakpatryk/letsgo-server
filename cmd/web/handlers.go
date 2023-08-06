@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"html/template"
 	"net/http"
 	"strconv"
 
@@ -17,24 +16,17 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Templates
-	tmplFiles := []string{
-		"./ui/html/base.tmpl.html",
-		"./ui/html/partials/nav.tmpl.html",
-		"./ui/html/home.tmpl.html",
-	}
+	snippets, err := app.snippets.Latest()
 
-	tmpl, err := template.ParseFiles(tmplFiles...)
 	if err != nil {
 		app.serverError(w, err)
 		return
 	}
 
-	err = tmpl.ExecuteTemplate(w, "base", nil)
-	if err != nil {
-		app.serverError(w, err)
-		return
-	}
+	data := app.newTemplateData(r)
+	data.Snippets = snippets
+
+	app.render(w, http.StatusOK, "home.tmpl.html", data)
 }
 
 func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
@@ -46,6 +38,7 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	snip, err := app.snippets.Get(id)
+
 	if err != nil {
 		if errors.Is(err, models.ErrNoRecord) {
 			app.notFound(w)
@@ -56,7 +49,11 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Fprintf(w, "%+v", snip)
+	data := app.newTemplateData(r)
+	data.Snippet = snip
+
+	app.render(w, http.StatusOK, "view.tmpl.html", data)
+
 }
 
 func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
