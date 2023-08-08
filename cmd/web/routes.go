@@ -9,11 +9,10 @@ import (
 
 func (app *application) routes() http.Handler {
 	router := httprouter.New()
-  mux := http.NewServeMux()
 
 	// STATIC FILES HANDLER
 	fileServer := http.FileServer(http.Dir("./ui/static/"))
-	mux.Handle("/static/", http.StripPrefix("/static", fileServer))
+	router.Handler(http.MethodGet, "/static/*filepath", http.StripPrefix("/static", fileServer))
 
 	// HANDLERS
   router.HandlerFunc(http.MethodGet, "/", app.home)
