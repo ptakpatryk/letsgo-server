@@ -18,6 +18,19 @@ type snippetCreateForm struct {
 	validator.Validator `form:"-"`
 }
 
+type userSignupForm struct {
+	Email               string `form:"email"`
+	Name                string `form:"name"`
+	Password            string `form:"password"`
+	validator.Validator `form:"-"`
+}
+
+type userLoginForm struct {
+	Email               string `form:"email"`
+	Password            string `form:"password"`
+	validator.Validator `form:"-"`
+}
+
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
 	snippets, err := app.snippets.Latest()
 
@@ -101,21 +114,94 @@ func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request
 }
 
 func (app *application) userSignup(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Display a html form for signing up a new user")
+	data := app.newTemplateData(r)
+	data.Form = userSignupForm{}
+
+	app.render(w, http.StatusOK, "signup.tmpl.html", data)
 }
 
 func (app *application) userSignupPost(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Display a html form for signing up a new user")
+	var form userSignupForm
+	err := app.decodePostForm(r, &form)
+	if err != nil {
+		app.clientError(w, http.StatusBadRequest)
+	}
+
+	form.Validator.CheckField(validator.NotBlank(form.Email), "email", "Email is required.")
+	form.Validator.CheckField(validator.Matches(form.Email, validator.EmailRX), "email", "Invalid format of an email.")
+	form.Validator.CheckField(validator.NotBlank(form.Name), "name", "Name is required.")
+	form.Validator.CheckField(validator.NotBlank(form.Password), "password", "Password is required.")
+	form.Validator.CheckField(validator.MinChars(form.Password, 8), "password", "Password must be at least 8 characters long.")
+
+	if !form.Valid() {
+		data := app.newTemplateData(r)
+		data.Form = form
+		app.render(w, http.StatusUnprocessableEntity, "signup.tmpl.html", data)
+		return
+	}
+
+	err = app.users.Insert(form.Name, form.Email, form.Password)
+	if err != nil {
+		if errors.Is(err, models.ErrDuplicateEmail) {
+			form.Validator.AddFieldError("email", "This email is already taken.")
+
+			data := app.newTemplateData(r)
+			data.Form = form
+			app.render(w, http.StatusUnprocessableEntity, "signup.tmpl.html", data)
+		} else {
+			app.serverError(w, err)
+		}
+		return
+	}
+
+	app.sessionManager.Put(r.Context(), "flash", "Your signup was successful. Please log in.")
+
+	http.Redirect(w, r, "/user/login", http.StatusSeeOther)
 }
 
 func (app *application) userLogin(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Display a html form for signing up a new user")
+	var form userLoginForm
+	data := app.newTemplateData(r)
+	data.Form = form
+	app.render(w, http.StatusOK, "login.tmpl.html", data)
 }
 
 func (app *application) userLoginPost(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Display a html form for signing up a new user")
+	var form userLoginForm
+	err := app.decodePostForm(r, &form)
+	if err != nil {
+		app.clientError(w, http.StatusBadRequest)
+	}
+
+	form.CheckField(validator.NotBlank(form.Email), "email", "Please provide email.")
+	form.CheckField(validator.Matches(form.Email, validator.EmailRX), "email", "Please provide correct email.")
+	form.CheckField(validator.NotBlank(form.Password), "password", "Password cannot be empty.")
+
+	if !form.Valid() {
+		data := app.newTemplateData(r)
+		data.Form = form
+		app.render(w, http.StatusUnprocessableEntity, "login.tmpl.html", data)
+		return
+	}
+
+	userId, err := app.users.Authenticate(form.Email, form.Password)
+	if err != nil {
+		app.infoLog.Println(err)
+		if errors.Is(err, models.ErrInvalidCredentials) {
+			form.AddNonFieldError("Invalid credentials.")
+			data := app.newTemplateData(r)
+			data.Form = form
+			app.render(w, http.StatusUnprocessableEntity, "login.tmpl.html", data)
+			return
+		} else {
+			app.serverError(w, err)
+			return
+		}
+	}
+
+	fmt.Fprintf(w, "Correctly logged in %d", userId)
 }
 
 func (app *application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Display a html form for signing up a new user")
+	fmt.Fprintln(w, "TODO: LOGOUT")
 }
