@@ -92,7 +92,7 @@ func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request
 	form.Validator.CheckField(validator.NotBlank(form.Title), "title", "Title cannot be blank.")
 	form.Validator.CheckField(validator.MaxChars(form.Title, 100), "title", "Title cannot be longer than 100 characters.")
 	form.Validator.CheckField(validator.NotBlank(form.Content), "content", "Snippet content cannot be blank.")
-	form.Validator.CheckField(validator.PermittedInt(form.Expires, 1, 7, 365), "expires", "This field must be equal 1, 7 or 365.")
+	form.Validator.CheckField(validator.PermittedValue(form.Expires, 1, 7, 365), "expires", "This field must be equal 1, 7 or 365.")
 
 	if !form.Valid() {
 		data := app.newTemplateData(r)
@@ -221,4 +221,8 @@ func (app *application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
 	app.sessionManager.Put(r.Context(), "flash", "You have been logged out successfully.")
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+func ping(w http.ResponseWriter, r *http.Request) {
+  w.Write([]byte("OK"))
 }
