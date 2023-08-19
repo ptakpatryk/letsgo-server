@@ -35,8 +35,7 @@ var functions = template.FuncMap{
 func newTemplateCache() (map[string]*template.Template, error) {
 	cache := map[string]*template.Template{}
 
-	// pages, err := filepath.Glob("./ui/html/pages/*.tmpl.html")
-	pages, err := fs.Glob(ui.Files, "./ui/html/pages/*.tmpl.html")
+	pages, err := fs.Glob(ui.Files, "html/pages/*.tmpl.html")
 	if err != nil {
 		return nil, err
 	}
